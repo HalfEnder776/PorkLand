@@ -83,7 +83,7 @@ local function ConfigureInteriorVisualAndPhysics(active_interior)
 	visual.floortexture:set(active_interior.floortexture)
 	visual.walltexture:set(active_interior.walltexture)
 
-    visual.walltexturesize:set(active_interior.walltexturesize)
+    visual.walltexturedimensions:set(active_interior.walltexturedimensions)
 	
 	visual.roomheight:set(active_interior.height)
 	visual.roomlength:set(active_interior.length)
@@ -403,7 +403,7 @@ function self:RetrofitInteriorData(interior_data)
 	if interior_data.pending_props == nil then interior_data.pending_props = {} end
 	if interior_data.floortexture == nil then interior_data.floortexture = "levels/textures/interiors/sourceerror.tex" end
 	if interior_data.walltexture == nil then interior_data.walltexture = "levels/textures/interiors/sourceerror.tex" end
-    if interior_data.walltexturesize == nil then interior_data.walltexturesize = 512 end
+    if interior_data.walltexturedimensions == nil then interior_data.walltexturedimensions = 512 end
 	if interior_data.minimaptexture == nil then interior_data.minimaptexture = "levels/textures/interiors/sourceerror.tex" end
 	if interior_data.cc == nil then interior_data.cc = "images/colour_cubes/pigshop_interior_cc.tex" end
 	if interior_data.reverb == nil then interior_data.reverb = "inside" end
@@ -427,7 +427,7 @@ function self:CreateRoom(interior_data)
 		
 		floortexture = interior_data.floortexture,
 		walltexture = interior_data.walltexture,
-        walltexturesize = interior_data.walltexturesize,
+        walltexturedimensions = interior_data.walltexturedimensions,
 		minimaptexture = interior_data.minimaptexture,
 		
 		cc = interior_data.cc,

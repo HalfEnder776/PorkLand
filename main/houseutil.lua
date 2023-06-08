@@ -105,7 +105,7 @@ function CreatePalaceRoom(group, x, y)
 		interior_group = group or id,
 		floortexture = INTERIOR_FLOOR_PALACE,
 		walltexture = INTERIOR_WALL_PALACE,
-        walltexturesize = 1024,
+        walltexturedimensions = 1024,
 		pending_props = props,
 		pos = {x = x or 0, y = y or 0},
 	})

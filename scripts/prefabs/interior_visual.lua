@@ -52,7 +52,7 @@ local function OnEmitDirty(inst)
 	inst:DoTaskInTime(0, function()
 		local heightscale = UnitToPixel(inst.roomheight:value()) / 512
 		local scale = UnitToPixel(inst.roomwidth:value()) / 512
-		local height = PixelToUnit(inst.walltexturesize:value() * heightscale) / 2
+		local height = PixelToUnit(inst.walltexturedimensions:value() * heightscale) / 2
 		local realheight = height * 0.948 --magic number
 		local halflength = inst.roomlength:value()/2
 		local halfwidth = inst.roomwidth:value()/2
@@ -115,7 +115,7 @@ local function fn()
 	inst.floortexture = net_string(inst.GUID, "interior.floortexture", "interiortexturedirty")
 	inst.walltexture = net_string(inst.GUID, "interior.walltexture", "interiortexturedirty")
 
-    inst.walltexturesize = net_ushortint(inst.GUID, "interior.walltexturesize")
+    inst.walltexturedimensions = net_ushortint(inst.GUID, "interior.walltexturedimensions")
 	--
 	inst.roomheight = net_smallbyte(inst.GUID, "interior.roomheight", "roomdirty")
 	inst.roomlength = net_smallbyte(inst.GUID, "interior.roomlength", "roomdirty")
