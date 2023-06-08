@@ -6,6 +6,7 @@ local PL_ACTIONS = {
     HACK = Action({mindistance = 1.75, silent_fail = true}),
     SHEAR = Action({distance = 1.75}),
     PEAGAWK_TRANSFORM = Action({}),
+    USEINTERIORDOOR = Action({}),
 }
 
 for name, ACTION in pairs(PL_ACTIONS) do
@@ -72,6 +73,19 @@ ACTIONS.PEAGAWK_TRANSFORM.fn = function(act)
     return true -- Dummy action for flup hiding
 end
 
+ACTIONS.USEINTERIORDOOR.fn = function(act)
+	if act.target:HasTag("secret_room") or act.target:HasTag("predoor") then
+		return false
+	end
+
+	if act.target.components.interiordoor and not act.target.components.interiordoor.disabled then
+		act.target.components.interiordoor:Activate(act.doer)
+		return true
+	elseif act.target.components.interiordoor and act.target.components.interiordoor.disabled then
+		return false, "LOCKED"
+	end
+end
+
 
 
 
@@ -101,7 +115,11 @@ end
 local PL_COMPONENT_ACTIONS =
 {
     SCENE = { -- args: inst, doer, actions, right
-
+    interiordoor = function(inst, doer, actions, right)
+        if not inst:HasTag("predoor") then
+            table.insert(actions, ACTIONS.USEINTERIORDOOR)
+        end
+    end
     },
 
     USEITEM = { -- args: inst, doer, target, actions, right

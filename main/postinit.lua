@@ -2,6 +2,7 @@
 local components_post = {
     "actionqueuer",
     "ambientlighting",
+    "ambientsound",
     "clock",
     "colourcube",
     "combat",
@@ -11,7 +12,10 @@ local components_post = {
     "inventoryitem",
     "lootdropper",
     "moisture",
+    "oceancolor",
     "playercontroller",
+    "playerprox",
+    "playervision",
     "pollinator",
     "regrowthmanager",
     "rider_replica",
@@ -20,7 +24,7 @@ local components_post = {
     "shard_seasons",
     "sleeper",
     "wavemanager",
-    "worldstate"
+    "worldstate",
 }
 
 local prefabs_post = {
@@ -28,6 +32,7 @@ local prefabs_post = {
     "player",
     "player_classified",
     "woodie",
+    "world",
     "world_network",
     "shard_network",
 }
@@ -48,9 +53,13 @@ local stategraphs_post = {
 local brains_post = {
 }
 
-local widgets = {
+local widgets_post = {
     "seasonclock",
     "uiclock"
+}
+
+local screens_post = {
+    "mapscreen",
 }
 
 local sim_post = {
@@ -59,6 +68,7 @@ local sim_post = {
 
 modimport("postinit/entityscript")
 modimport("postinit/animstate")
+modimport("postinit/player")
 
 for _, file_name in ipairs(components_post) do
     modimport("postinit/components/" .. file_name)
@@ -84,12 +94,16 @@ for _, file_name in ipairs(brains_post) do
     modimport("postinit/brains/" .. file_name)
 end
 
-for _, file_name in ipairs(widgets) do
+for _, file_name in ipairs(widgets_post) do
     modimport("postinit/widgets/"  ..  file_name)
 end
 
--- AddSimPostInit(function()
---     for _, file_name in pairs(sim_post) do
---         modimport("postinit/sim/" .. file_name)
---     end
--- end)
+for _, file_name in ipairs(screens_post) do
+    modimport("postinit/screens/"  ..  file_name)
+end
+
+AddSimPostInit(function()
+    for _, file_name in pairs(sim_post) do
+        modimport("postinit/sim/" .. file_name)
+    end
+end)

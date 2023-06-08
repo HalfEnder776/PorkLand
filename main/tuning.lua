@@ -138,6 +138,8 @@ local tuning = {
     RAINFOREST_CANOPY_SCALE = 6,				    -- scale for the texture
     RAINFOREST_CANOPY_MIN_STRENGTH = 0.2,		    -- blend min strength - modulated with avg ambient
     RAINFOREST_CANOPY_MAX_STRENGTH = 0.7,		    -- blend max strength - modulated with avg ambient
+
+    MAX_INTERIOR_SIZE = 50, -- TODO: prob needs to be larger
 }
 
 for key, value in pairs(tuning) do

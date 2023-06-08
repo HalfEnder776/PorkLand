@@ -24,6 +24,13 @@ PrefabFiles = {
     -- "tubertrees",
     "weevole_carapace",
     "weevole",
+
+    -- house prefabs
+    "interior_physics",
+	"interior_visual",
+
+    -- debug
+    "debug_door",
 }
 
 Assets = {
@@ -48,6 +55,32 @@ Assets = {
     Asset("ANIM", "anim/player_mount_idles_poison.zip"),
     Asset("ANIM", "anim/player_actions_hack.zip"),
     Asset("ANIM", "anim/player_actions_shear.zip"),
+
+    -- house Assets
+    --Asset("SHADER", "shaders/billboard.ksh"),
+	Asset("SHADER", "shaders/interior.ksh"),
+	Asset("SHADER", "shaders/map_interior.ksh"),
+	Asset("IMAGE", "levels/textures/interiors/sourceerror.tex"),
+	Asset("IMAGE", "levels/textures/interiors/antcave_floor.tex"),
+	Asset("IMAGE", "levels/textures/interiors/antcave_wall_rock.tex"),
+	Asset("IMAGE", "levels/textures/interiors/floor_marble_royal.tex"),
+	Asset("IMAGE", "levels/textures/interiors/wall_royal_high.tex"),
+	Asset("IMAGE", "images/colour_cubes/pigshop_interior_cc.tex"),
+
+	Asset("ATLAS", "levels/textures/map_interior/mini_ruins_slab.xml"),
+	Asset("IMAGE", "levels/textures/map_interior/mini_ruins_slab.tex"),
+	Asset("ATLAS", "levels/textures/map_interior/frame.xml"),
+	Asset("IMAGE", "levels/textures/map_interior/frame.tex"),
+
+	Asset("ATLAS", "levels/textures/map_interior/exit.xml"),
+	Asset("IMAGE", "levels/textures/map_interior/exit.tex"),
+
+	Asset("ATLAS", "levels/textures/map_interior/passage.xml"),
+	Asset("IMAGE", "levels/textures/map_interior/passage.tex"),
+	Asset("ATLAS", "levels/textures/map_interior/passage_blocked.xml"),
+	Asset("IMAGE", "levels/textures/map_interior/passage_blocked.tex"),
+	Asset("ATLAS", "levels/textures/map_interior/passage_unknown.xml"),
+	Asset("IMAGE", "levels/textures/map_interior/passage_unknown.tex"),
 }
 
 Pl_Util.RegisterInventoryItemAtlas("images/pl_inventoryimages.xml")

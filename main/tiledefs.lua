@@ -50,6 +50,7 @@ local is_worldgen = rawget(_G, "WORLDGEN_MAIN") ~= nil
 
 if not is_worldgen then
     TileGroups.PLOceanTiles = TileGroups.IAOceanTiles or TileGroupManager:AddTileGroup()
+    TileGroups.InteriorTiles = TileGroupManager:AddTileGroup()
 end
 
 local TileRanges =
@@ -407,12 +408,23 @@ local pl_tiledefs = {
             return WORLD_TILES.RAINFOREST
         end,
     },
-
+    -------------------------------
+    -- INTERIOR
+    -- (render order doesnt matter)
+    -------------------------------
+    INTERIOR = {
+        tile_range = TileRanges.INTERIOR,
+        tile_data = {
+            ground_name = "Interior Tile"
+        },
+    }
 }
 
 for tile, def in pairs(pl_tiledefs) do
     local range = def.tile_range
-    if type(range) == "function" then
+    if range == TileRanges.INTERIOR then
+        range = TileRanges.LAND
+    elseif type(range) == "function" then
         range = TileRanges.NOISE
     end
 
@@ -420,7 +432,9 @@ for tile, def in pairs(pl_tiledefs) do
 
     local tile_id = WORLD_TILES[tile]
 
-    if def.tile_range == TileRanges.OCEAN then
+    if range == TileRanges.INTERIOR then
+        TileGroupManager:AddValidTile(TileGroups.InteriorTiles, tile_id)
+    elseif def.tile_range == TileRanges.OCEAN then
         if not is_worldgen then
             TileGroupManager:AddInvalidTile(TileGroups.TransparentOceanTiles, tile_id)
             TileGroupManager:AddValidTile(TileGroups.PLOceanTiles, tile_id)
@@ -438,6 +452,10 @@ end
 GROUND_FLOODPROOF = rawget(_G, "GROUND_FLOODPROOF")
 if GROUND_FLOODPROOF then
 end
+
+GROUND_FLOORING[WORLD_TILES.INTERIOR] = true
+GROUND_HARD[WORLD_TILES.INTERIOR] = true
+TERRAFORM_IMMUNE[WORLD_TILES.INTERIOR] = true
 
 for prefab, filter in pairs(terrain.filter) do
     if type(filter) == "table" then

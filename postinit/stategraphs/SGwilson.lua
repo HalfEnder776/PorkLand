@@ -19,6 +19,7 @@ local actionhandlers = {
             end
         end
     end),
+    ActionHandler(ACTIONS.USEINTERIORDOOR, "useinteriordoor"), --Maybe use "dostandingaction" instead? -Half
 }
 
 local states = {
@@ -225,6 +226,18 @@ local states = {
             EventHandler("unequip", function(inst) inst.sg:GoToState("idle")  end),
             EventHandler("animover", function(inst) inst.sg:GoToState("idle") end),
         },
+    },
+
+    State{
+        name = "useinteriordoor",
+        tags = {"doing", "canrotate"},
+        
+        onenter = function(inst)
+            inst.sg.statemem.action = inst:GetBufferedAction()
+            inst.components.locomotor:Stop()
+			inst:PerformBufferedAction()
+			inst.sg:GoToState("idle") 
+        end,
     },
 }
 

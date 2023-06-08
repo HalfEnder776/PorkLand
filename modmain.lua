@@ -1,5 +1,6 @@
 local modimport = modimport
 local GetModConfigData = GetModConfigData
+local IAENV = env
 GLOBAL.setfenv(1, GLOBAL)
 
 IA_ENABLED = rawget(_G, "IA_CONFIG") ~= nil
@@ -12,11 +13,18 @@ PL_CONFIG = {
     locale = GetModConfigData("locale", true),
 }
 
+-- TODO: Should prob be somewhere else
+IAENV.AddSimPostInit(function()
+    local Initialize = require("interior_defs/dimension_defs").Initialize
+    Initialize()
+end)
+
 modimport("main/tuning")
 modimport("main/constants")
 
 modimport("main/pl_util")
 modimport("main/util")
+modimport("main/houseutil")
 modimport("main/commands")
 modimport("main/standardcomponents")
 
@@ -30,3 +38,11 @@ modimport("main/RPC")
 modimport("main/actions")
 modimport("main/postinit")
 
+modimport("libraries/luaminimap")
+modimport("libraries/lualighting")
+
+------------------------------ HAM Replicatable Components ------------------------------------------------------------
+
+AddReplicableComponent("interiorplayer")
+
+------------------------------ Replicatable Components ---------------------------------------
