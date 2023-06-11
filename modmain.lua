@@ -1,6 +1,7 @@
 local modimport = modimport
 local GetModConfigData = GetModConfigData
 local IAENV = env
+GLOBAL.IAENV = env
 GLOBAL.setfenv(1, GLOBAL)
 
 IA_ENABLED = rawget(_G, "IA_CONFIG") ~= nil

@@ -61,6 +61,7 @@ self.inst = inst
 
 local _world = TheWorld
 local _map = _world.Map
+local _ismastersim = _world.ismastersim
 
 local taken_positions = {} --[pos] = true
 local pathfindingBarriers = {} --[pos] = {positions}
@@ -261,237 +262,262 @@ end
 --[[ Public Member functions ]]
 --------------------------------------------------------------------------
 
-function self:EnterInterior(doer, interior_id, dest, skipunloadattempt)
-	local interior = interiors[interior_id]
-	
-	if not skipunloadattempt then
-		local cached_interior = cached_player_interiors[doer.userid]
-		
-		self.inst:DoTaskInTime(0, function()
-			if cached_interior and self:ShouldUnloadInterior(cached_interior) then
-				print("unloading")
-				self:UnloadInterior(cached_interior)
-			end
-		end)
-	end
-	
-	cached_player_interiors[doer.userid] = interior_id
-	
-	if self:ShouldLoadInterior(interior_id) then
-		self:LoadInterior(interior_id)
-	end
-	
-	doer:SetInteriorID(interior_id)
-
-    if dest ~= doer then
-        local pt = Vector3(interior.world_position:Get())
-        if dest ~= nil and dest.prefab then
-            pt = dest:GetPosition()
-        elseif dest ~= nil then
-            pt = dest
+if _ismastersim then
+    function self:EnterInterior(doer, interior_id, dest, skipunloadattempt)
+        local interior = interiors[interior_id]
+        
+        if not skipunloadattempt then
+            local cached_interior = cached_player_interiors[doer.userid]
+            
+            self.inst:DoTaskInTime(0, function()
+                if cached_interior and self:ShouldUnloadInterior(cached_interior) then
+                    print("unloading")
+                    self:UnloadInterior(cached_interior)
+                end
+            end)
         end
-        doer.Transform:SetPositionIgnoringInterior(pt:Get())
-    end
-
-    if doer.components.interiorplayer ~= nil then
-        doer.components.interiorplayer:EnterInterior(interior.visual)
-    end
-    -- TODO: Support for non players
-end
-
-function self:ExitInterior(doer, interior_id, dest)
-	local interior = interiors[interior_id]
-	
-	cached_player_interiors[doer.userid] = nil
-	
-	doer:SetInteriorID(nil)
-
-    if dest ~= doer then
-        local pt = Vector3(TheWorld.components.playerspawner:GetAnySpawnPoint()) --florid postern if no location found...
-        if dest ~= nil and dest.prefab then
-            pt = dest:GetPosition()
-        elseif dest ~= nil then
-            pt = dest
+        
+        cached_player_interiors[doer.userid] = interior_id
+        
+        if self:ShouldLoadInterior(interior_id) then
+            self:LoadInterior(interior_id)
         end
-        doer.Transform:SetPositionIgnoringInterior(pt:Get())
+        
+        doer:SetInteriorID(interior_id)
+
+        if dest ~= doer then
+            local pt = Vector3(interior.world_position:Get())
+            if dest ~= nil and dest.prefab then
+                pt = dest:GetPosition()
+            elseif dest ~= nil then
+                pt = dest
+            end
+            doer.Transform:SetPositionIgnoringInterior(pt:Get())
+        end
+
+        if doer.components.interiorplayer ~= nil then
+            doer.components.interiorplayer:EnterInterior(interior.visual)
+        end
+        -- TODO: Support for non players
     end
 
-	if self:ShouldUnloadInterior(interior_id) then
-		self:UnloadInterior(interior_id)
-	end
+    function self:ExitInterior(doer, interior_id, dest)
+        local interior = interiors[interior_id]
+        
+        cached_player_interiors[doer.userid] = nil
+        
+        doer:SetInteriorID(nil)
 
-    print("exit interior")
-    if doer.components.interiorplayer ~= nil then
-        print("exit interior player")
-        doer.components.interiorplayer:ExitInterior()
+        if dest ~= doer then
+            local pt = Vector3(TheWorld.components.playerspawner:GetAnySpawnPoint()) --florid postern if no location found...
+            if dest ~= nil and dest.prefab then
+                pt = dest:GetPosition()
+            elseif dest ~= nil then
+                pt = dest
+            end
+            doer.Transform:SetPositionIgnoringInterior(pt:Get())
+        end
+
+        if self:ShouldUnloadInterior(interior_id) then
+            self:UnloadInterior(interior_id)
+        end
+
+        print("exit interior")
+        if doer.components.interiorplayer ~= nil then
+            print("exit interior player")
+            doer.components.interiorplayer:ExitInterior()
+        end
+    end
+
+    function self:LoadInterior(interior_id)
+        print("LoadInterior", GetTime())
+        if active_interiors[interior_id] ~= nil then print("[Interior_Manager] Tried running Load Interior, "..interior_id.." is already loaded!") return end
+        --
+        local interior = interiors[interior_id]
+        interior.world_position = GetNextInteriorSpawnPos()
+        print("Loading interior "..interior.interior_id..". Part of group: ("..(interior.interior_group or "UNKNOWN GROUP")..")")
+
+        active_interiors[interior_id] = interior
+        
+        if interior.pending_props then
+            SpawnPendingProps(interior)
+        else
+            for obj, _ in pairs(interior.object_list) do
+                RescueObjectFromLimbo(obj, interior)
+            end
+        end
+
+        self:GetInteriorEntities(interior_id)
+        SetUpPathFindingBarriers(active_interiors[interior_id], interior.length, interior.width)
+        ConfigureInteriorVisualAndPhysics(active_interiors[interior_id])
+    end
+
+    function self:UnloadInterior(interior_id)
+        if active_interiors[interior_id] == nil then print("[Interior_Manager] Tried running Unload Interior, "..interior_id.." is already NOT loaded!") return end
+        --
+        local interior = interiors[interior_id]
+        print("Unload interior "..interior.interior_id..". Part of group: ("..(interior.interior_group or "UNKNOWN GROUP")..")")
+
+        self:GetInteriorEntities(interior_id)
+        
+        for obj, _ in pairs(interior.object_list) do
+            ChuckObjectIntoLimbo(obj, interior)
+        end
+        
+        ClearPathfindingBarriers(active_interiors[interior_id])
+        ClearInteriorVisualAndPhysics(active_interiors[interior_id])
+        
+        taken_positions[interior.world_position.z] = nil
+        interior.world_position = nil
+
+        active_interiors[interior_id] = nil
+    end
+
+    --[[
+    --Hornet: Named parameters instead of positional parameters because holy moly there is too many parameters for me to want to remember each position
+    interior_data = {
+        length = 15, the length
+        width = 10, the width
+        interior_group = group_id, the group this interior belongs to, for minimapping logic(and etc)
+        interior_id = id, the unique id that this specific interior holds, and only this interior
+        pending_props = { { name = prefabname, pos_offset = Vector3(0,0,0), rotation = 0, addtags = {"sus"}} }, a table enlisting the prefabs that need to spawn on first load of the interior
+        
+        floortexture = "levels/textures/noise_woodfloor.tex",
+        walltexture = "levels/textures/interiors/shop_wall_woodwall.tex",
+        minimaptexture = "levels/textures/map_interior/mini_ruins_slab.tex",
+        
+        cc = "images/colour_cubes/pigshop_interior_cc.tex",
+        reverb = "inside",
+    }
+    local id = TheWorld.components.interiormanager:GetNewID() 
+    TheWorld.components.interiormanager:CreateRoom({interior_id = id, floortexture = INTERIOR_FLOOR, walltexture = INTERIOR_WALL}) print(id) 
+    TheWorld.components.interiormanager:EnterInterior(ThePlayer, id)
+
+    object_list = {
+        [ent] = true,
+    }
+    ]]
+
+    function self:RetrofitInteriorData(interior_data)
+        if interior_data.length == nil then interior_data.length = 15 end
+        if interior_data.width == nil then interior_data.width = 10 end
+        if interior_data.height == nil then interior_data.height = 5 end
+        if interior_data.pending_props == nil then interior_data.pending_props = {} end
+        if interior_data.floortexture == nil then interior_data.floortexture = "levels/textures/interiors/sourceerror.tex" end
+        if interior_data.walltexture == nil then interior_data.walltexture = "levels/textures/interiors/sourceerror.tex" end
+        if interior_data.walltexturedimensions == nil then interior_data.walltexturedimensions = 512 end
+        if interior_data.minimaptexture == nil then interior_data.minimaptexture = "levels/textures/interiors/sourceerror.tex" end
+        if interior_data.cc == nil then interior_data.cc = "images/colour_cubes/pigshop_interior_cc.tex" end
+        if interior_data.reverb == nil then interior_data.reverb = "inside" end
+        if interior_data.pos == nil then interior_data.pos = {x = 0, y = 0} end
+        if interior_room_positions[interior_data.interior_group] == nil then interior_room_positions[interior_data.interior_group] = {} end
+        if interior_room_positions[interior_data.interior_group][interior_data.pos.x] == nil then interior_room_positions[interior_data.interior_group][interior_data.pos.x] = {} end
+        if interior_room_positions[interior_data.interior_group][interior_data.pos.x][interior_data.pos.y] == nil then interior_room_positions[interior_data.interior_group][interior_data.pos.x][interior_data.pos.y] = {} end
+    end
+
+    function self:CreateRoom(interior_data)
+        self:RetrofitInteriorData(interior_data)
+
+        local interior_def = {
+            length = interior_data.length,
+            width = interior_data.width,
+            height = interior_data.height,
+            interior_group = interior_data.interior_group,
+            interior_id = interior_data.interior_id,
+            pending_props = interior_data.pending_props,
+            object_list = {},
+            
+            floortexture = interior_data.floortexture,
+            walltexture = interior_data.walltexture,
+            walltexturedimensions = interior_data.walltexturedimensions,
+            minimaptexture = interior_data.minimaptexture,
+            
+            cc = interior_data.cc,
+            reverb = interior_data.reverb,
+            pos = interior_data.pos,
+        }
+        
+        interiors[interior_def.interior_id] = interior_def
+        print(interior_def.interior_group, interior_data.pos.x, interior_data.pos.y)
+        interior_room_positions[interior_def.interior_group][interior_data.pos.x][interior_data.pos.y] = interior_def.interior_id -- def or id?
+    end
+    --TODO(H): unfinished function, needs to be lot more clean up here
+    function self:RemoveRoom(interior_id)
+        interiors[interior_id] = nil
+    end
+
+    function self:ShouldLoadInterior(interior_id)
+        return active_interiors[interior_id] == nil
+    end
+
+    function self:ShouldUnloadInterior(interior_id)
+        return active_interiors[interior_id] ~= nil and
+            (#self:GetPlayersInInterior(interior_id) <= 0)
+    end
+
+    function self:GetNewID()
+        next_interior_ID = next_interior_ID + 1
+        return next_interior_ID
     end
 end
 
-function self:LoadInterior(interior_id)
-	print("LoadInterior", GetTime())
-	if active_interiors[interior_id] ~= nil then print("[Interior_Manager] Tried running Load Interior, "..interior_id.." is already loaded!") return end
-	--
-	local interior = interiors[interior_id]
-	interior.world_position = GetNextInteriorSpawnPos()
-	print("Loading interior "..interior.interior_id..". Part of group: ("..(interior.interior_group or "UNKNOWN GROUP")..")")
-
-	active_interiors[interior_id] = interior
-	
-	if interior.pending_props then
-		SpawnPendingProps(interior)
-	else
-		for obj, _ in pairs(interior.object_list) do
-			RescueObjectFromLimbo(obj, interior)
-		end
-	end
-
-	self:GetInteriorEntities(interior_id)
-	SetUpPathFindingBarriers(active_interiors[interior_id], interior.length, interior.width)
-	ConfigureInteriorVisualAndPhysics(active_interiors[interior_id])
+if _ismastersim then
+    function self:IsPointInInterior(x, y, z)
+        if not self:IsPointInInteriorSpawn(x, z) then return end
+        local pos = {x = x, y = z}
+        for id, interior in pairs(active_interiors) do
+            local int_pos = interior.world_position
+            local width = interior.width
+            local length = interior.length
+            local AABB = {
+                minX = int_pos.x - (width/2),
+                maxX = int_pos.x + (width/2),
+                minY = int_pos.z - (length/2),
+                maxY = int_pos.z + (length/2),
+            }
+            if PointInsideAABB(pos, AABB) then
+                return true, id
+            end
+        end
+        -- In interior space but not in an interior
+        return false, -1
+    end
+else
+    function self:IsPointInInterior(x, y, z)
+        if not self:IsPointInInteriorSpawn(x, z) then return end
+        local pos = {x = x, y = z}
+        for id, interior in pairs(active_interiors) do
+            local int_pos = interior.world_position
+            local width = interior.width
+            local length = interior.length
+            local AABB = {
+                minX = int_pos.x - (width/2),
+                maxX = int_pos.x + (width/2),
+                minY = int_pos.z - (length/2),
+                maxY = int_pos.z + (length/2),
+            }
+            if PointInsideAABB(pos, AABB) then
+                return true, id
+            end
+        end
+        -- In interior space but not in an interior
+        return false, -1
+    end
 end
 
-function self:UnloadInterior(interior_id)
-	if active_interiors[interior_id] == nil then print("[Interior_Manager] Tried running Unload Interior, "..interior_id.." is already NOT loaded!") return end
-	--
-	local interior = interiors[interior_id]
-	print("Unload interior "..interior.interior_id..". Part of group: ("..(interior.interior_group or "UNKNOWN GROUP")..")")
-
-	self:GetInteriorEntities(interior_id)
-	
-	for obj, _ in pairs(interior.object_list) do
-		ChuckObjectIntoLimbo(obj, interior)
-	end
-	
-	ClearPathfindingBarriers(active_interiors[interior_id])
-	ClearInteriorVisualAndPhysics(active_interiors[interior_id])
-	
-	taken_positions[interior.world_position.z] = nil
-	interior.world_position = nil
-
-	active_interiors[interior_id] = nil
-end
-
---[[
---Hornet: Named parameters instead of positional parameters because holy moly there is too many parameters for me to want to remember each position
-interior_data = {
-	length = 15, the length
-	width = 10, the width
-	interior_group = group_id, the group this interior belongs to, for minimapping logic(and etc)
-	interior_id = id, the unique id that this specific interior holds, and only this interior
-	pending_props = { { name = prefabname, pos_offset = Vector3(0,0,0), rotation = 0, addtags = {"sus"}} }, a table enlisting the prefabs that need to spawn on first load of the interior
-	
-	floortexture = "levels/textures/noise_woodfloor.tex",
-	walltexture = "levels/textures/interiors/shop_wall_woodwall.tex",
-	minimaptexture = "levels/textures/map_interior/mini_ruins_slab.tex",
-	
-	cc = "images/colour_cubes/pigshop_interior_cc.tex",
-	reverb = "inside",
-}
-local id = TheWorld.components.interiormanager:GetNewID() 
-TheWorld.components.interiormanager:CreateRoom({interior_id = id, floortexture = INTERIOR_FLOOR, walltexture = INTERIOR_WALL}) print(id) 
-TheWorld.components.interiormanager:EnterInterior(ThePlayer, id)
-
-object_list = {
-	[ent] = true,
-}
-]]
-
-function self:RetrofitInteriorData(interior_data)
-	if interior_data.length == nil then interior_data.length = 15 end
-	if interior_data.width == nil then interior_data.width = 10 end
-	if interior_data.height == nil then interior_data.height = 5 end
-	if interior_data.pending_props == nil then interior_data.pending_props = {} end
-	if interior_data.floortexture == nil then interior_data.floortexture = "levels/textures/interiors/sourceerror.tex" end
-	if interior_data.walltexture == nil then interior_data.walltexture = "levels/textures/interiors/sourceerror.tex" end
-    if interior_data.walltexturedimensions == nil then interior_data.walltexturedimensions = 512 end
-	if interior_data.minimaptexture == nil then interior_data.minimaptexture = "levels/textures/interiors/sourceerror.tex" end
-	if interior_data.cc == nil then interior_data.cc = "images/colour_cubes/pigshop_interior_cc.tex" end
-	if interior_data.reverb == nil then interior_data.reverb = "inside" end
-	if interior_data.pos == nil then interior_data.pos = {x = 0, y = 0} end
-	if interior_room_positions[interior_data.interior_group] == nil then interior_room_positions[interior_data.interior_group] = {} end
-	if interior_room_positions[interior_data.interior_group][interior_data.pos.x] == nil then interior_room_positions[interior_data.interior_group][interior_data.pos.x] = {} end
-	if interior_room_positions[interior_data.interior_group][interior_data.pos.x][interior_data.pos.y] == nil then interior_room_positions[interior_data.interior_group][interior_data.pos.x][interior_data.pos.y] = {} end
-end
-
-function self:CreateRoom(interior_data)
-    self:RetrofitInteriorData(interior_data)
-
-	local interior_def = {
-		length = interior_data.length,
-		width = interior_data.width,
-		height = interior_data.height,
-		interior_group = interior_data.interior_group,
-		interior_id = interior_data.interior_id,
-		pending_props = interior_data.pending_props,
-		object_list = {},
-		
-		floortexture = interior_data.floortexture,
-		walltexture = interior_data.walltexture,
-        walltexturedimensions = interior_data.walltexturedimensions,
-		minimaptexture = interior_data.minimaptexture,
-		
-		cc = interior_data.cc,
-		reverb = interior_data.reverb,
-		pos = interior_data.pos,
-	}
-	
-	interiors[interior_def.interior_id] = interior_def
-	print(interior_def.interior_group, interior_data.pos.x, interior_data.pos.y)
-	interior_room_positions[interior_def.interior_group][interior_data.pos.x][interior_data.pos.y] = interior_def.interior_id -- def or id?
-end
---TODO(H): unfinished function, needs to be lot more clean up here
-function self:RemoveRoom(interior_id)
-	interiors[interior_id] = nil
-end
-
-function self:ShouldLoadInterior(interior_id)
-	return active_interiors[interior_id] == nil
-end
-
-function self:ShouldUnloadInterior(interior_id)
-	return active_interiors[interior_id] ~= nil and
-		(#self:GetPlayersInInterior(interior_id) <= 0)
-end
-
-function self:GetNewID()
-	next_interior_ID = next_interior_ID + 1
-	return next_interior_ID
-end
-
-function self:GetPlayersInInterior(interior_id)
-	local interior = active_interiors[interior_id]
-	local x, y, z = interior.world_position:Get()
-	
-	return FindPlayersInRange(x,y,z, math.max(interior.length, interior.width))
-end
-
-function self:IsPointInInteriorSpawn(x, y, z)
+function self:IsPointInInteriorSpawn(x, z)
     return x + _space_between_interiors >= interior_spawn_origin.x
 end
 
-function self:IsPointInInteriorStorage(x, y, z)
+function self:IsPointInInteriorStorage(x, z)
     return z + _space_between_interiors >= interior_storage_origin.z
 end
 
-function self:IsPointInInterior(x, y, z)
-    if not self:IsPointInInteriorSpawn(x, z) then return end
-	local pos = {x = x, y = z}
-	for id, interior in pairs(active_interiors) do
-		local int_pos = interior.world_position
-		local width = interior.width
-		local length = interior.length
-		local AABB = {
-			minX = int_pos.x - (width/2),
-			maxX = int_pos.x + (width/2),
-			minY = int_pos.z - (length/2),
-			maxY = int_pos.z + (length/2),
-		}
-		if PointInsideAABB(pos, AABB) then
-			return true, id
-		end
-	end
-    -- In interior space but not in an interior
-    return false, -1
+function self:GetPlayersInInterior(interior_id)
+    local interior = active_interiors[interior_id]
+    local x, y, z = interior.world_position:Get()
+    
+    return FindPlayersInRange(x,y,z, math.max(interior.length, interior.width))
 end
 
 --(H): lots of more work needs to be done on interior entity collection implementation
@@ -526,7 +552,7 @@ function self:GetInteriorEntities(interior_id)
 	return ents
 end
 
-function self:GetDebugString()
+self.GetDebugString = _ismastersim and function()
 	--[[
 	TODO(H): include debug names for interiors?
 	]]
@@ -567,7 +593,7 @@ end
 --[[ Private event handlers ]]
 --------------------------------------------------------------------------
 
-local function OnPlayerJoined(src, player)
+local OnPlayerJoined = _ismastersim and function(src, player)
 	--Load into interior, and blahblah such stuff.
 	if player == nil or (player.userid and player.userid == "") then
         return
@@ -590,9 +616,9 @@ local function OnPlayerJoined(src, player)
 		--TODO(H): I think player_classified isn't set in time fast enough
 		self:EnterInterior(player, cached_interior, nil, true)
     end
-end
+end or nil
 
-local function OnPlayerLeft(src, player)
+local OnPlayerLeft = _ismastersim and function(src, player)
 	if player == nil or (player.userid and player.userid == "") then
         return
     end
@@ -607,13 +633,13 @@ local function OnPlayerLeft(src, player)
 			self:UnloadInterior(cached_interior)
 		end
     end
-end
+end or nil
 
 --------------------------------------------------------------------------
 --[[ Save/Load ]]
 --------------------------------------------------------------------------
 
-function self:OnSave()
+self.OnSave = _ismastersim and function()
     local data = {}
 	local ents = {}
 
@@ -639,9 +665,9 @@ function self:OnSave()
 	data.interior_room_positions = interior_room_positions
 
 	return ZipAndEncodeSaveData(data), ents --TODO, zip and encode ents?
-end
+end or nil
 
-function self:OnLoad(data)
+self.OnLoad = _ismastersim and function(data)
     data = DecodeAndUnzipSaveData(data)
     if data == nil then
         return
@@ -659,7 +685,7 @@ function self:OnLoad(data)
 	interior_room_positions = data.interior_room_positions or {}
 end
 
-function self:LoadPostPass(ents, data)
+self.LoadPostPass = _ismastersim and function(ents, data)
 	data = DecodeAndUnzipSaveData(data)
     if data == nil then
         return
@@ -690,7 +716,9 @@ end
 --[[ Initialization ]]
 --------------------------------------------------------------------------
 
-inst:ListenForEvent("ms_playerjoined", OnPlayerJoined)
-inst:ListenForEvent("ms_playerleft", OnPlayerLeft)
+if _ismastersim then
+    inst:ListenForEvent("ms_playerjoined", OnPlayerJoined)
+    inst:ListenForEvent("ms_playerleft", OnPlayerLeft)
+end
 
 end)

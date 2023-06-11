@@ -125,7 +125,19 @@ if TheNet:GetIsMasterSimulation() then
     end
 
     function EntityScript:SetInteriorID(id)
-        assert(id > 0, "Tried setting invalid interior id for", self)
+        assert(id == nil or id > 0, "Tried setting invalid interior id", id, " for", self)
+        
+        if not self.interior_label then
+            local label = self.entity:AddLabel()
+            self.interior_label = label
+            label:SetColour(unpack(PLAYERCOLOURS.CORAL))
+            label:SetWorldOffset(0, 1, 0)
+            label:SetFont(CHATFONT_OUTLINE)
+            label:SetFontSize(16)
+            label:Enable(true)
+        end
+        self.interior_label:SetText(tostring(id or 0)) 
+
         self.interior_id = id
     end
 

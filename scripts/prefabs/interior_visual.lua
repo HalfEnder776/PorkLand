@@ -3,14 +3,17 @@
 	omg just turn this into a 'interior_manager' or something similar and manage visual/physics/misc data for clients
 ]]
 
---local TEXTURE = "levels/tiles/falloff.tex"
---local TEXTURE = "levels/tiles/blocky.tex"
+local INTERIOR_VISUALS = {}
+
 local TEXTURE = "levels/textures/Ground_noise_deciduous.tex"
 local TEXTURE_FLOOR = "levels/textures/interiors/floor_cityhall.tex"
 local TEXTURE_WALL = "levels/textures/interiors/shop_wall_woodwall.tex"
 local SHADER = "shaders/interior.ksh"
 
-local MAX_LIFETIME = 99999 --27 hours. Should be good enough aye?
+local MAX_LIFETIME = 10000
+local SIM_TICK_TIME = TheSim:GetTickTime()
+local LIFETIME_RANGE = math.ceil(80/SIM_TICK_TIME)*SIM_TICK_TIME
+
 local MAX_PARTICLES1 = 1
 local MAX_PARTICLES2 = 2
 
@@ -72,10 +75,10 @@ local function OnEmitDirty(inst)
 		inst.VFXEffect:SetScaleEnvelope(3, "interiorheight"..inst.roomheight:value())
 		inst.VFXEffect:SetUVFrameSize(3, -inst.roomlength:value()/inst.roomheight:value(), 1)
 
-		print("halflength", halflength)
-		print("halfwidth", halfwidth)
-		print("extrawidth", extrawidth)
-		print("scale: ", scale)
+		-- print("halflength", halflength)
+		-- print("halfwidth", halfwidth)
+		-- print("extrawidth", extrawidth)
+		-- print("scale: ", scale)
 		
 		emit(inst, 0, {x = 0, y = 0, z = 0}) --floor
 		emit(inst, 1, {x = -extrawidth, y = realheight, z = -halflength}) --side wall
@@ -195,7 +198,40 @@ local function fn()
 	inst:ListenForEvent("interior.emit", OnEmitDirty)
 	inst:ListenForEvent("interiortexturedirty", OnTextureDirty)
 	--
+
+    inst:ListenForEvent("onremove", function() INTERIOR_VISUALS[inst] = nil end)
+    INTERIOR_VISUALS[inst] = true
+
+    local ticktime = 0
+
+    function inst:UpdateParticles(dt)
+        -- Make sure our lifetime never ends
+		ticktime = ticktime + dt
+		if ticktime >= LIFETIME_RANGE then
+            effect:FastForward(0, -LIFETIME_RANGE)
+            ticktime = ticktime - LIFETIME_RANGE
+		end
+    end
+
+    function inst:ResetParticles()
+		ticktime = 0
+		effect:ClearAllParticles(0)
+    end
+
     return inst
+end
+
+-- TODO: Not here?
+if not TheNet:IsDedicated() then
+    IAENV.AddSimPostInit(function()
+        local _Update = Update
+        function Update(dt, ...)
+            _Update(dt, ...)
+            for interior_visual, _ in pairs(INTERIOR_VISUALS) do
+                interior_visual:UpdateParticles(dt)
+            end
+        end
+    end)
 end
 
 return Prefab("interior_visual", fn, assets)
